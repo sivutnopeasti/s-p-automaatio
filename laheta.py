@@ -3,6 +3,7 @@
 Asetukset: config.json (paivittainen_maara, kaytossa)
 Vastaanottajat: lista.csv (sarakkeet email, nimi)
 Viesti: viesti.txt (ensimmäinen rivi "Aihe: ...", {nimi} korvataan)
+       viesti.html (valinnainen HTML-versio, lähetetään tekstiversion rinnalla)
 Lähetetyt: lahetetyt.csv (kenellekään ei lähetetä kahdesti)
 Estetyt: estetyt.csv (näille ei lähetetä koskaan)
 Salasana: ympäristömuuttuja SMTP_SALASANA (GitHubin secret "salasana")
@@ -19,7 +20,7 @@ from email.message import EmailMessage
 from email.utils import formataddr, formatdate, make_msgid
 
 TILIT = ["ugc@visioreach.fi", "ugc@visiosites.fi"]
-LAHETTAJAN_NIMI = "Visio"
+LAHETTAJAN_NIMI = "UGC Suomi"
 PORTTI = 465
 VIIVE_SEK = (30, 90)  # satunnainen tauko viestien välillä
 
@@ -73,19 +74,25 @@ def main():
         return
 
     aihe_pohja, runko_pohja = lue_viesti()
+    html_pohja = None
+    if os.path.exists("viesti.html"):
+        with open("viesti.html", encoding="utf-8") as f:
+            html_pohja = f.read()
     yhteydet = {}
     try:
         for i, (email, nimi) in enumerate(jono):
             tili = TILIT[i % len(TILIT)]
-            kutsu = nimi or "siellä"
+            kutsu = nimi  # ilman nimeä "Hei {nimi}," -> "Hei,"
             msg = EmailMessage()
             msg["From"] = formataddr((LAHETTAJAN_NIMI, tili))
             msg["To"] = email
-            msg["Subject"] = aihe_pohja.replace("{nimi}", kutsu)
+            msg["Subject"] = aihe_pohja.replace("{nimi}", kutsu).replace(" ,", ",").strip()
             msg["Date"] = formatdate(localtime=True)
             msg["Message-ID"] = make_msgid(domain=tili.split("@")[1])
             msg["List-Unsubscribe"] = f"<mailto:{tili}?subject=unsubscribe>"
-            msg.set_content(runko_pohja.replace("{nimi}", kutsu))
+            msg.set_content(runko_pohja.replace("{nimi}", kutsu).replace(" ,", ","))
+            if html_pohja:
+                msg.add_alternative(html_pohja.replace("{nimi}", kutsu).replace(" ,", ","), subtype="html")
 
             if kuivaharjoitus:
                 print(f"[KUIVA] {tili} -> {email}: {msg['Subject']}")

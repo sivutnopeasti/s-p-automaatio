@@ -1,9 +1,20 @@
-Aihe: Hei {nimi}, lyhyt kysymys
+Aihe: Löydä yrityksellesi sisällöntuottaja helposti
 
 Hei {nimi},
 
-Tähän tulee viestin sisältö. {nimi} korvataan listan nimellä, ja jos nimeä
-ei ole, sen tilalle tulee "siellä".
+Löydä yrityksellesi sisällöntuottaja helposti: kerro kampanjastasi UGC Suomessa, niin viemme sen yli 2 500 suomalaisen sisällöntuottajan nähtäville.
+
+Näin se toimii:
+1. Täytät lyhyen lomakkeen kampanjastasi. Tekstejä ei tarvitse kirjoittaa itse.
+2. Saat esikatselun sähköpostiisi ja hyväksyt sen.
+3. Sisällöntuottajat hakevat suoraan sinulle, usein jo ensimmäisen vuorokauden aikana.
+
+Perusilmoitus on maksuton, ja palkkiosta sovit suoraan valitsemiesi tekijöiden kanssa.
+
+Ilmoita kampanjasta tästä:
+https://ugcsuomi.fi/ilmoita-kampanjasta-sisallontuottajille/
 
 Ystävällisin terveisin,
-Visio
+UGC Suomi
+
+Jos et halua saada näitä viestejä, vastaa tähän viestiin, niin poistamme sinut listalta.

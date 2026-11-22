@@ -7,7 +7,8 @@ Yksinkertainen sähköpostiautomaatio: lähettää päivittäin säädettävän 
 | Tiedosto | Mitä |
 |---|---|
 | `lista.csv` | Vastaanottajat, sarakkeet `email,nimi` (nimi vapaaehtoinen) |
-| `viesti.txt` | Viesti. Ensimmäinen rivi `Aihe: ...`, `{nimi}` korvataan nimellä |
+| `viesti.txt` | Viesti. Ensimmäinen rivi `Aihe: ...`, `{nimi}` korvataan nimellä (ilman nimeä "Hei {nimi}," → "Hei,") |
+| `viesti.html` | Viestin HTML-versio (UGC Suomen tyyli). Lähetetään tekstiversion rinnalla, `{nimi}` toimii samoin |
 | `config.json` | `paivittainen_maara` ja `kaytossa` (päivitetään asetussivulta) |
 | `lahetetyt.csv` | Kenelle on jo lähetetty. Kenellekään ei lähetetä kahdesti |
 | `estetyt.csv` | Osoitteet, joille ei lähetetä koskaan (esim. peruutukset) |
