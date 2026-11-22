@@ -6,8 +6,6 @@ Mukaan otetaan rivit, joilla
 - on sähköpostiosoite, joka näyttää kelvolliselta
 - Yrityksen status on Aktiivinen
 - Yritysmuoto ei ole asunto- tai kiinteistöyhtiö
-- Kannattaako kontaktoida? ei ole "Ei"
-- Viesti lähetetty on tyhjä (heille ei ole jo lähetetty)
 Sama osoite otetaan vain kerran. Jo olemassa olevan lista.csv:n järjestys säilyy,
 ja uudet osoitteet lisätään loppuun.
 """
@@ -45,10 +43,6 @@ def main(lahde, kohde="lista.csv"):
                 syy = "ei aktiivinen"
             elif (r.get("Yritysmuoto") or "").strip() in POIS_YRITYSMUODOT:
                 syy = "kiinteistöyhtiö"
-            elif (r.get("Kannattaako kontaktoida?") or "").strip().lower() == "ei":
-                syy = "ei kannata kontaktoida"
-            elif (r.get("Viesti lähetetty") or "").strip():
-                syy = "viesti jo lähetetty"
             elif email.lower() in nahdyt:
                 syy = "tuplaosoite"
             if syy:
