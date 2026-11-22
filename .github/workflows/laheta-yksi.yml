@@ -35,6 +35,8 @@ jobs:
       - name: Lähetä
         env:
           SMTP_SALASANA: ${{ secrets.salasana }}
+          SMTP_SALASANA_VISIOREACH: ${{ secrets.salasana_visioreach }}
+          SMTP_SALASANA_VISIOSITES: ${{ secrets.salasana_visiosites }}
           VASTAANOTTAJA: ${{ inputs.vastaanottaja }}
           AIHE: ${{ inputs.aihe }}
           VIESTI: ${{ inputs.viesti }}

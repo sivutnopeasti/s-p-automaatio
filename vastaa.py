@@ -13,7 +13,7 @@ import time
 from email.message import EmailMessage
 from email.utils import formataddr, formatdate, make_msgid
 
-from laheta import LAHETTAJAN_NIMI, PORTTI, TILIT
+from laheta import LAHETTAJAN_NIMI, PORTTI, TILIT, tilin_salasana
 from postilaatikko import lahetetyt_kansio
 from salaus import pura
 
@@ -57,13 +57,13 @@ def main():
 
     domain = tili.split("@")[1]
     with smtplib.SMTP_SSL("mail." + domain, PORTTI, timeout=60) as s:
-        s.login(tili, salasana)
+        s.login(tili, tilin_salasana(tili, salasana))
         s.send_message(msg)
     print(f"Vastaus lähetetty tililtä {tili}.")
 
     try:
         imap = imaplib.IMAP4_SSL("mail." + domain, 993, timeout=60)
-        imap.login(tili, salasana)
+        imap.login(tili, tilin_salasana(tili, salasana))
         kansio = lahetetyt_kansio(imap)
         if kansio:
             imap.append(f'"{kansio}"', "\\Seen", imaplib.Time2Internaldate(time.time()), msg.as_bytes())

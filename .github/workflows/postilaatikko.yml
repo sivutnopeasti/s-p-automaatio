@@ -36,11 +36,15 @@ jobs:
         if: ${{ inputs.vastaus != '' && inputs.vastaus != null }}
         env:
           SMTP_SALASANA: ${{ secrets.salasana }}
+          SMTP_SALASANA_VISIOREACH: ${{ secrets.salasana_visioreach }}
+          SMTP_SALASANA_VISIOSITES: ${{ secrets.salasana_visiosites }}
           VASTAUS: ${{ inputs.vastaus }}
         run: python vastaa.py
       - name: Päivitä postilaatikko
         env:
           SMTP_SALASANA: ${{ secrets.salasana }}
+          SMTP_SALASANA_VISIOREACH: ${{ secrets.salasana_visioreach }}
+          SMTP_SALASANA_VISIOSITES: ${{ secrets.salasana_visiosites }}
         run: python postilaatikko.py
       - name: Tallenna postilaatikko-haaraan
         run: |

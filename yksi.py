@@ -9,7 +9,7 @@ import sys
 from email.message import EmailMessage
 from email.utils import formataddr, formatdate, make_msgid
 
-from laheta import LAHETTAJAN_NIMI, PORTTI, TILIT, lue_viesti
+from laheta import LAHETTAJAN_NIMI, PORTTI, TILIT, lue_viesti, tilin_salasana
 
 
 def main():
@@ -47,7 +47,7 @@ def main():
         msg.add_alternative(html, subtype="html")
 
     with smtplib.SMTP_SSL("mail." + tili.split("@")[1], PORTTI, timeout=60) as s:
-        s.login(tili, salasana)
+        s.login(tili, tilin_salasana(tili, salasana))
         s.send_message(msg)
     print(f"Lähetetty{' (kampanjaviesti)' if html else ''}: {tili} -> {vastaanottaja}")
 

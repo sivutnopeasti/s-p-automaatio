@@ -29,6 +29,8 @@ jobs:
       - name: Lähetä
         env:
           SMTP_SALASANA: ${{ secrets.salasana }}
+          SMTP_SALASANA_VISIOREACH: ${{ secrets.salasana_visioreach }}
+          SMTP_SALASANA_VISIOSITES: ${{ secrets.salasana_visiosites }}
           KUIVAHARJOITUS: ${{ github.event_name == 'workflow_dispatch' && inputs.kuivaharjoitus || 'false' }}
         run: python laheta.py
       - name: Tallenna lähetetyt

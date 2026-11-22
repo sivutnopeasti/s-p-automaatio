@@ -15,7 +15,7 @@ from datetime import datetime, timedelta, timezone
 from email.header import decode_header, make_header
 from email.utils import getaddresses, parseaddr, parsedate_to_datetime
 
-from laheta import TILIT
+from laheta import TILIT, tilin_salasana
 from salaus import salaa
 
 PAIVIA = 90          # kuinka kauas taaksepäin haetaan
@@ -116,7 +116,7 @@ def hae_kaikki(salasana):
     for tili in TILIT:
         try:
             imap = imaplib.IMAP4_SSL("mail." + tili.split("@")[1], 993, timeout=60)
-            imap.login(tili, salasana)
+            imap.login(tili, tilin_salasana(tili, salasana))
             viestit += hae_kansio(imap, "INBOX", tili, "in")
             sent = lahetetyt_kansio(imap)
             if sent:

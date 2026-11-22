@@ -25,6 +25,13 @@ PORTTI = 465
 VIIVE_SEK = (30, 90)  # satunnainen tauko viestien välillä
 
 
+def tilin_salasana(tili, oletus):
+    """Tilikohtainen salasana, jos secret on asetettu (esim. SMTP_SALASANA_VISIOSITES),
+    muuten yhteinen salasana."""
+    nimi = "SMTP_SALASANA_" + tili.split("@")[1].split(".")[0].upper()
+    return os.environ.get(nimi) or oletus
+
+
 def lue_csv(polku):
     if not os.path.exists(polku):
         return []
@@ -80,40 +87,56 @@ def main():
     if os.path.exists("viesti.html"):
         with open("viesti.html", encoding="utf-8") as f:
             html_pohja = f.read()
-    yhteydet = {}
+    yhteydet, rikki = {}, set()
+
+    def rakenna(tili, email, kutsu):
+        msg = EmailMessage()
+        msg["From"] = formataddr((LAHETTAJAN_NIMI, tili))
+        msg["To"] = email
+        msg["Subject"] = aihe_pohja.replace("{nimi}", kutsu).replace(" ,", ",").strip()
+        msg["Date"] = formatdate(localtime=True)
+        msg["Message-ID"] = make_msgid(domain=tili.split("@")[1])
+        msg["List-Unsubscribe"] = f"<mailto:{tili}?subject=unsubscribe>"
+        msg.set_content(runko_pohja.replace("{nimi}", kutsu).replace(" ,", ","))
+        if html_pohja:
+            msg.add_alternative(html_pohja.replace("{nimi}", kutsu).replace(" ,", ","), subtype="html")
+        return msg
+
+    def laheta_tililta(tili, msg):
+        for yritys in range(2):
+            try:
+                if tili not in yhteydet:
+                    s = smtplib.SMTP_SSL("mail." + tili.split("@")[1], PORTTI, timeout=60)
+                    s.login(tili, tilin_salasana(tili, salasana))
+                    yhteydet[tili] = s
+                yhteydet[tili].send_message(msg)
+                return
+            except smtplib.SMTPServerDisconnected:
+                yhteydet.pop(tili, None)  # yhteys katkesi tauon aikana, avataan uusi
+                if yritys:
+                    raise
+
     try:
         for i, (email, nimi) in enumerate(jono):
-            tili = min(TILIT, key=lambda t: per_tili[t])  # tasan molemmille tileille
-            per_tili[tili] += 1
             kutsu = nimi  # ilman nimeä "Hei {nimi}," -> "Hei,"
-            msg = EmailMessage()
-            msg["From"] = formataddr((LAHETTAJAN_NIMI, tili))
-            msg["To"] = email
-            msg["Subject"] = aihe_pohja.replace("{nimi}", kutsu).replace(" ,", ",").strip()
-            msg["Date"] = formatdate(localtime=True)
-            msg["Message-ID"] = make_msgid(domain=tili.split("@")[1])
-            msg["List-Unsubscribe"] = f"<mailto:{tili}?subject=unsubscribe>"
-            msg.set_content(runko_pohja.replace("{nimi}", kutsu).replace(" ,", ","))
-            if html_pohja:
-                msg.add_alternative(html_pohja.replace("{nimi}", kutsu).replace(" ,", ","), subtype="html")
-
+            while True:
+                toimivat = [t for t in TILIT if t not in rikki]
+                if not toimivat:
+                    sys.exit("Kirjautuminen epäonnistui kaikilla tileillä.")
+                tili = min(toimivat, key=lambda t: per_tili[t])  # tasan toimiville tileille
+                msg = rakenna(tili, email, kutsu)
+                if kuivaharjoitus:
+                    break
+                try:
+                    laheta_tililta(tili, msg)
+                    break
+                except smtplib.SMTPAuthenticationError:
+                    print(f"VIRHE: kirjautuminen epäonnistui tilillä {tili}, käytetään muita tilejä.")
+                    rikki.add(tili)
+            per_tili[tili] += 1
             if kuivaharjoitus:
                 print(f"[KUIVA] {tili} -> {email}: {msg['Subject']}")
                 continue
-
-            for yritys in range(2):
-                try:
-                    if tili not in yhteydet:
-                        palvelin = "mail." + tili.split("@")[1]
-                        s = smtplib.SMTP_SSL(palvelin, PORTTI, timeout=60)
-                        s.login(tili, salasana)
-                        yhteydet[tili] = s
-                    yhteydet[tili].send_message(msg)
-                    break
-                except smtplib.SMTPServerDisconnected:
-                    yhteydet.pop(tili, None)  # yhteys katkesi tauon aikana, avataan uusi
-                    if yritys:
-                        raise
 
             with open("lahetetyt.csv", "a", newline="", encoding="utf-8") as f:
                 csv.writer(f).writerow([datetime.now(timezone.utc).isoformat(timespec="seconds"), email, tili])
