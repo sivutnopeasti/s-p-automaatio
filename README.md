@@ -6,7 +6,8 @@ Yksinkertainen sähköpostiautomaatio: lähettää päivittäin säädettävän 
 
 | Tiedosto | Mitä |
 |---|---|
-| `lista.csv` | Vastaanottajat, sarakkeet `email,nimi` (nimi vapaaehtoinen) |
+| `lista.csv` | Vastaanottajat, sarakkeet `email,nimi,yritys` (nimi ja yritys vapaaehtoisia) |
+| `suodata.py` | Muuntaa YTJ-yrityslistan `lista.csv`:ksi: `python suodata.py "YTJ....csv"` |
 | `viesti.txt` | Viesti. Ensimmäinen rivi `Aihe: ...`, `{nimi}` korvataan nimellä (ilman nimeä "Hei {nimi}," → "Hei,") |
 | `viesti.html` | Viestin HTML-versio (UGC Suomen tyyli). Lähetetään tekstiversion rinnalla, `{nimi}` toimii samoin |
 | `config.json` | `paivittainen_maara` ja `kaytossa` (päivitetään asetussivulta) |
