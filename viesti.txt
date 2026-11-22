@@ -12,7 +12,7 @@ Näin se toimii:
 Perusilmoitus on maksuton.
 
 Ilmoita kampanjasta tästä:
-https://ugcsuomi.fi/ilmoita-kampanjasta-sisallontuottajille/
+https://ugcsuomi.fi/ilmoita-kampanjasta-sisallontuottajille/?utm_source=sahkoposti&utm_medium=email&utm_campaign=kampanjailmoitus
 
 Terkuin,
 UGC Suomen tiimi
