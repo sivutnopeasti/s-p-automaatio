@@ -28,6 +28,23 @@
   .rivi { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
   .rivi input { flex:1; min-width:140px; margin:0; }
   .rivi button { width:auto; margin:0; }
+  .pl-lista { border:1px solid var(--border); border-radius:8px; overflow:hidden; margin-top:12px; }
+  .pl-rivi { padding:10px 12px; border-bottom:1px solid var(--border); cursor:pointer; display:flex; gap:10px; align-items:flex-start; }
+  .pl-rivi:last-child { border-bottom:0; }
+  .pl-rivi:hover { background:var(--bg); }
+  .pl-rivi .pl-main { flex:1; min-width:0; }
+  .pl-rivi .pl-ots { display:flex; justify-content:space-between; gap:8px; }
+  .pl-rivi .pl-snip { color:var(--muted); font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .pl-uusi .pl-nimi { font-weight:700; }
+  .pl-piste { width:8px; height:8px; border-radius:4px; background:var(--accent); margin-top:8px; flex:none; visibility:hidden; }
+  .pl-uusi .pl-piste { visibility:visible; }
+  .pl-tili { font-size:12px; color:var(--muted); border:1px solid var(--border); border-radius:10px; padding:0 6px; white-space:nowrap; }
+  .pl-viesti { border:1px solid var(--border); border-radius:8px; padding:10px 12px; margin:10px 0; }
+  .pl-viesti.out { background:var(--bg); margin-left:24px; }
+  .pl-viesti.in { margin-right:24px; }
+  .pl-viesti pre { white-space:pre-wrap; word-break:break-word; font:inherit; margin:6px 0 0; background:none; border:0; padding:0; max-height:none; }
+  .pl-meta { font-size:13px; color:var(--muted); }
+  .toissijainen { background:transparent; color:var(--accent); border:1px solid var(--border); }
   .stats b { display:block; font-size:22px; }
 </style>
 </head>
@@ -60,6 +77,26 @@
     <input type="password" id="token" placeholder="github_pat_...">
   </div>
 </main>
+<section class="esik">
+  <div class="card" id="postilaatikko">
+    <h1>Vastaukset</h1>
+    <p class="muted">Molempien tilien saapuneet viestit. Päivittyy automaattisesti noin 15 minuutin välein.</p>
+    <div class="rivi">
+      <input type="password" id="pl-salasana" placeholder="Sähköpostitilien salasana (avaa vastauslaatikon)">
+      <button id="pl-paivita" type="button">Päivitä nyt</button>
+    </div>
+    <p class="muted" id="pl-tila"></p>
+    <div id="pl-listanakyma"><div class="pl-lista" id="pl-lista" hidden></div></div>
+    <div id="pl-ketjunakyma" hidden>
+      <button type="button" class="toissijainen" id="pl-takaisin" style="width:auto">← Takaisin</button>
+      <h1 id="pl-ketju-ots" style="margin-top:16px"></h1>
+      <div id="pl-ketju"></div>
+      <textarea id="pl-vastaus" placeholder="Kirjoita vastaus"></textarea>
+      <button type="button" id="pl-laheta">Lähetä vastaus</button>
+      <p class="muted" id="pl-laheta-tila"></p>
+    </div>
+  </div>
+</section>
 <section class="esik">
   <div class="card">
     <h1>Viestin esikatselu</h1>
@@ -167,8 +204,121 @@ $("e-koodi").addEventListener("click", () => {
 });
 $("token").addEventListener("change", lataaEsikatselu);
 
+// ---------- Vastauslaatikko ----------
+const plGet = () => { try { return localStorage.getItem("pl_salasana") || ""; } catch { return ""; } };
+const luetut = (() => { try { return new Set(JSON.parse(localStorage.getItem("pl_luetut") || "[]")); } catch { return new Set(); } })();
+const tallennaLuetut = () => { try { localStorage.setItem("pl_luetut", JSON.stringify([...luetut].slice(-5000))); } catch {} };
+$("pl-salasana").value = plGet();
+$("pl-salasana").addEventListener("change", e => { try { localStorage.setItem("pl_salasana", e.target.value); } catch {} lataaPosti(); });
+
+const b64 = u8 => btoa(String.fromCharCode(...u8));
+const unb64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+async function avain(salasana, salt) {
+  const perus = await crypto.subtle.importKey("raw", new TextEncoder().encode(salasana), "PBKDF2", false, ["deriveKey"]);
+  return crypto.subtle.deriveKey({ name: "PBKDF2", salt, iterations: 200000, hash: "SHA-256" }, perus, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+}
+async function puraPaketti(p, salasana) {
+  const k = await avain(salasana, unb64(p.salt));
+  const raaka = await crypto.subtle.decrypt({ name: "AES-GCM", iv: unb64(p.iv) }, k, unb64(p.data));
+  return JSON.parse(new TextDecoder().decode(raaka));
+}
+async function salaaOlio(olio, salasana) {
+  const salt = crypto.getRandomValues(new Uint8Array(16)), iv = crypto.getRandomValues(new Uint8Array(12));
+  const k = await avain(salasana, salt);
+  const data = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, k, new TextEncoder().encode(JSON.stringify(olio))));
+  return { salt: b64(salt), iv: b64(iv), data: b64(data) };
+}
+
+let ketjut = [], avoinKetju = null, odottavat = {};
+const pvmTxt = iso => iso ? new Date(iso).toLocaleString("fi-FI", { day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
+const el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
+
+async function lataaPosti() {
+  if (!getToken()) return;
+  if (!plGet()) { $("pl-tila").textContent = "Syötä salasana avataksesi vastaukset."; return; }
+  try {
+    const r = await fetch(API + "postilaatikko.json?ref=postilaatikko&t=" + Date.now(), { headers: { ...otsikot(), Accept: "application/vnd.github.raw" } });
+    if (r.status === 404) { $("pl-tila").textContent = "Vastauksia ei ole vielä haettu. Paina Päivitä nyt."; return; }
+    if (!r.ok) throw new Error(r.status);
+    let data;
+    try { data = await puraPaketti(await r.json(), plGet()); }
+    catch { $("pl-tila").textContent = "Väärä salasana."; return; }
+    const ryhmat = {};
+    for (const v of data.viestit) (ryhmat[v.tili + "|" + v.vastapuoli] ||= []).push(v);
+    ketjut = Object.entries(ryhmat).map(([avain, viestit]) => ({ avain, tili: viestit[0].tili, vastapuoli: viestit[0].vastapuoli, viestit }))
+      .filter(k => k.viestit.some(v => v.suunta === "in"))
+      .sort((a, b) => b.viestit.at(-1).pvm.localeCompare(a.viestit.at(-1).pvm));
+    const uusia = ketjut.filter(k => !onLuettu(k)).length;
+    $("pl-tila").textContent = `${ketjut.length} keskustelua${uusia ? `, ${uusia} lukematonta` : ""}. Haettu ${pvmTxt(data.paivitetty)}.` + (data.virheet?.length ? " Virhe: " + data.virheet.join(", ") : "");
+    piirraLista();
+    if (avoinKetju) { const k = ketjut.find(x => x.avain === avoinKetju); if (k) avaaKetju(k); }
+  } catch (err) { $("pl-tila").textContent = "Virhe: " + err.message; }
+}
+const viimeisinSaapunut = k => [...k.viestit].reverse().find(v => v.suunta === "in");
+const onLuettu = k => luetut.has(viimeisinSaapunut(k)?.message_id || k.avain);
+
+function piirraLista() {
+  const lista = $("pl-lista"); lista.innerHTML = ""; lista.hidden = !ketjut.length;
+  for (const k of ketjut) {
+    const viim = k.viestit.at(-1), saap = viimeisinSaapunut(k);
+    const rivi = el("div", "pl-rivi" + (onLuettu(k) ? "" : " pl-uusi"));
+    rivi.append(el("div", "pl-piste"));
+    const main = el("div", "pl-main"), ots = el("div", "pl-ots");
+    ots.append(el("span", "pl-nimi", saap.lahettaja_nimi ? `${saap.lahettaja_nimi} <${k.vastapuoli}>` : k.vastapuoli), el("span", "pl-meta", pvmTxt(viim.pvm)));
+    const ala = el("div", "pl-ots"); ala.append(el("span", "pl-snip", (viim.suunta === "out" ? "Sinä: " : "") + viim.aihe + " – " + viim.teksti.replace(/\s+/g, " ").slice(0, 120)), el("span", "pl-tili", k.tili.split("@")[1]));
+    main.append(ots, ala); rivi.append(main);
+    rivi.addEventListener("click", () => avaaKetju(k));
+    lista.append(rivi);
+  }
+}
+function avaaKetju(k) {
+  avoinKetju = k.avain;
+  $("pl-listanakyma").hidden = true; $("pl-ketjunakyma").hidden = false;
+  $("pl-ketju-ots").textContent = k.vastapuoli + " · " + k.tili;
+  const c = $("pl-ketju"); c.innerHTML = "";
+  for (const v of [...k.viestit, ...(odottavat[k.avain] || [])]) {
+    const d = el("div", "pl-viesti " + v.suunta);
+    d.append(el("div", "pl-meta", `${v.suunta === "out" ? "Sinä (" + v.tili + ")" : (v.lahettaja_nimi || v.lahettaja)} · ${v.pvm ? pvmTxt(v.pvm) : "lähetetään…"}`));
+    d.append(el("div", "", v.aihe)); d.lastChild.style.fontWeight = "600";
+    d.append(el("pre", "", v.teksti));
+    c.append(d);
+  }
+  const saap = viimeisinSaapunut(k);
+  if (saap) { luetut.add(saap.message_id || k.avain); tallennaLuetut(); }
+}
+$("pl-takaisin").addEventListener("click", () => { avoinKetju = null; $("pl-ketjunakyma").hidden = true; $("pl-listanakyma").hidden = false; piirraLista(); });
+
+async function kaynnistaPosti(inputs) {
+  return fetch(`https://api.github.com/repos/${REPO}/actions/workflows/postilaatikko.yml/dispatches`, { method: "POST", headers: otsikot(), body: JSON.stringify({ ref: "main", inputs }) });
+}
+$("pl-paivita").addEventListener("click", async () => {
+  const r = await kaynnistaPosti({});
+  $("pl-tila").textContent = r.status === 204 ? "Haku käynnistetty, uudet viestit näkyvät noin minuutin päästä…" : "Päivitys epäonnistui: " + r.status + " (onko tokenilla Actions-oikeus?)";
+  if (r.status === 204) { setTimeout(lataaPosti, 60000); setTimeout(lataaPosti, 120000); }
+});
+$("pl-laheta").addEventListener("click", async () => {
+  const k = ketjut.find(x => x.avain === avoinKetju), teksti = $("pl-vastaus").value.trim();
+  if (!k || !teksti) return;
+  const saap = viimeisinSaapunut(k);
+  if (!confirm(`Lähetetäänkö vastaus osoitteeseen ${k.vastapuoli} tililtä ${k.tili}?`)) return;
+  const olio = { tili: k.tili, vastaanottaja: k.vastapuoli, aihe: saap.aihe, teksti, in_reply_to: saap.message_id, references: saap.references, lainaus: saap.teksti.slice(0, 3000) };
+  $("pl-laheta").disabled = true; $("pl-laheta-tila").textContent = "Lähetetään…";
+  try {
+    const r = await kaynnistaPosti({ vastaus: JSON.stringify(await salaaOlio(olio, plGet())) });
+    if (r.status !== 204) throw new Error(r.status + " (onko tokenilla Actions-oikeus?)");
+    (odottavat[k.avain] ||= []).push({ suunta: "out", tili: k.tili, aihe: /^(re|vs):/i.test(saap.aihe) ? saap.aihe : "Re: " + saap.aihe, teksti, pvm: "" });
+    $("pl-vastaus").value = ""; $("pl-laheta-tila").textContent = "Vastaus lähtee noin minuutin kuluessa ✓";
+    avaaKetju(k);
+    setTimeout(() => { odottavat = {}; lataaPosti(); }, 90000);
+  } catch (err) { $("pl-laheta-tila").textContent = "Lähetys epäonnistui: " + err.message; }
+  $("pl-laheta").disabled = false;
+});
+$("token").addEventListener("change", lataaPosti);
+setInterval(lataaPosti, 5 * 60000);
+
 lataa();
 lataaEsikatselu();
+lataaPosti();
 </script>
 </body>
 </html>

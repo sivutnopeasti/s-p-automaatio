@@ -1,0 +1,54 @@
+name: Postilaatikko
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+    inputs:
+      vastaus:
+        description: "Salattu vastaus (asetussivulta). Tyhjä = pelkkä päivitys."
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+concurrency:
+  group: postilaatikko
+  cancel-in-progress: false
+
+jobs:
+  postilaatikko:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Hae aiempi postilaatikko
+        run: |
+          if git fetch -q --depth=1 origin postilaatikko:refs/remotes/origin/postilaatikko; then
+            git show origin/postilaatikko:postilaatikko.json > postilaatikko.json || rm -f postilaatikko.json
+          fi
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install --quiet cryptography
+      - name: Lähetä vastaus
+        if: ${{ inputs.vastaus != '' && inputs.vastaus != null }}
+        env:
+          SMTP_SALASANA: ${{ secrets.salasana }}
+          VASTAUS: ${{ inputs.vastaus }}
+        run: python vastaa.py
+      - name: Päivitä postilaatikko
+        env:
+          SMTP_SALASANA: ${{ secrets.salasana }}
+        run: python postilaatikko.py
+      - name: Tallenna postilaatikko-haaraan
+        run: |
+          cd "$RUNNER_TEMP"
+          rm -rf pl && mkdir pl && cd pl
+          git init -q -b postilaatikko
+          cp "$GITHUB_WORKSPACE/postilaatikko.json" .
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" add postilaatikko.json
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -qm "Postilaatikko"
+          if git -C "$GITHUB_WORKSPACE" show origin/postilaatikko:postilaatikko.json 2>/dev/null | cmp -s - postilaatikko.json; then echo "Ei muutoksia"; exit 0; fi
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" postilaatikko

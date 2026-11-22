@@ -36,3 +36,11 @@ Actions → *Lähetä sähköpostit* → *Run workflow*: kuivaharjoitus on oletu
 ## Yksittäinen viesti
 
 Asetussivun lomakkeella voi lähettää yhden viestin mihin tahansa osoitteeseen. Lomake käynnistää työnkulun *Lähetä yksi viesti*, ja viesti lähtee noin minuutissa. Huom: julkisessa repossa työnkulun ajot (ja siis osoite ja viesti) näkyvät kaikille.
+
+## Vastaukset
+
+Asetussivun *Vastaukset*-osio näyttää molempien tilien saapuneet viestit keskusteluina, ja niihin voi vastata suoraan. Vastaus lähtee samalta tililtä, jolle viesti tuli, ja se jatkaa samaa sähköpostiketjua.
+
+- Työnkulku *Postilaatikko* hakee viestit IMAPilla (mail.<domain>:993) 15 minuutin välein tai *Päivitä nyt* -napista. Haku kattaa 90 päivää.
+- Viestit tallennetaan haaraan `postilaatikko` **salattuna** (AES-GCM, avain johdettu secretistä `salasana`). Sivu purkaa ne selaimessa, kun syötät saman salasanan.
+- Vastaukset lähetetään salattuina työnkulun syötteenä, joten osoitteet ja tekstit eivät näy julkisissa lokeissa. Vastaus tallennetaan myös tilin Lähetetyt-kansioon, joten se näkyy myös webmailissa.
