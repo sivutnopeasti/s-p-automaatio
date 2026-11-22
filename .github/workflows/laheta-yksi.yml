@@ -7,11 +7,11 @@ on:
         description: "Vastaanottajan sähköpostiosoite"
         required: true
       aihe:
-        description: "Aihe"
-        required: true
+        description: "Aihe (tyhjä = kampanjaviestin aihe)"
+        required: false
       viesti:
-        description: "Viesti"
-        required: true
+        description: "Viesti (tyhjä = kampanjaviesti viesti.html)"
+        required: false
       lahettaja:
         description: "Lähettäjä"
         type: choice

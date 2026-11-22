@@ -1,11 +1,15 @@
-"""Lähettää yhden viestin käsin annettuun osoitteeseen (asetussivun lomakkeelta)."""
+"""Lähettää yhden viestin käsin annettuun osoitteeseen (asetussivun lomakkeelta).
+
+Jos viesti on tyhjä, lähetetään kampanjaviesti (viesti.html + viesti.txt).
+Jos aihe on tyhjä, käytetään viesti.txt:n aihetta.
+"""
 import os
 import smtplib
 import sys
 from email.message import EmailMessage
 from email.utils import formataddr, formatdate, make_msgid
 
-from laheta import LAHETTAJAN_NIMI, PORTTI, TILIT
+from laheta import LAHETTAJAN_NIMI, PORTTI, TILIT, lue_viesti
 
 
 def main():
@@ -19,8 +23,16 @@ def main():
         sys.exit("Virheellinen vastaanottaja.")
     if tili not in TILIT:
         sys.exit(f"Tuntematon lähettäjä: {tili}")
-    if not aihe or not viesti.strip():
-        sys.exit("Aihe ja viesti ovat pakollisia.")
+    html = None
+    if not viesti.strip():
+        pohja_aihe, viesti = lue_viesti()
+        aihe = aihe or pohja_aihe.replace("{nimi}", "").replace(" ,", ",").strip()
+        viesti = viesti.replace("{nimi}", "").replace(" ,", ",")
+        if os.path.exists("viesti.html"):
+            with open("viesti.html", encoding="utf-8") as f:
+                html = f.read().replace("{nimi}", "").replace(" ,", ",")
+    if not aihe:
+        sys.exit("Aihe puuttuu.")
     if not salasana:
         sys.exit("SMTP_SALASANA puuttuu.")
 
@@ -31,11 +43,13 @@ def main():
     msg["Date"] = formatdate(localtime=True)
     msg["Message-ID"] = make_msgid(domain=tili.split("@")[1])
     msg.set_content(viesti)
+    if html:
+        msg.add_alternative(html, subtype="html")
 
     with smtplib.SMTP_SSL("mail." + tili.split("@")[1], PORTTI, timeout=60) as s:
         s.login(tili, salasana)
         s.send_message(msg)
-    print(f"Lähetetty: {tili} -> {vastaanottaja}")
+    print(f"Lähetetty{' (kampanjaviesti)' if html else ''}: {tili} -> {vastaanottaja}")
 
 
 if __name__ == "__main__":

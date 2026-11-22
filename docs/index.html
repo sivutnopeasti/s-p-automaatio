@@ -49,8 +49,8 @@
   <div class="card">
     <h1>Lähetä yksi viesti</h1>
     <input type="email" id="m-to" placeholder="vastaanottaja@esimerkki.fi">
-    <input type="text" id="m-aihe" placeholder="Aihe">
-    <textarea id="m-viesti" placeholder="Kirjoita viesti tähän"></textarea>
+    <input type="text" id="m-aihe" placeholder="Aihe (tyhjä = kampanjaviestin aihe)">
+    <textarea id="m-viesti" placeholder="Kirjoita viesti tähän, tai jätä tyhjäksi, niin lähetetään kampanjaviesti (HTML-esikatselu)"></textarea>
     <select id="m-from"><option>ugc@visioreach.fi</option><option>ugc@visiosites.fi</option></select>
     <button id="m-laheta">Lähetä</button>
     <p class="muted" id="m-tila"></p>
@@ -128,8 +128,9 @@ $("tallenna").addEventListener("click", async () => {
 $("m-laheta").addEventListener("click", async () => {
   const to = $("m-to").value.trim(), aihe = $("m-aihe").value.trim(), viesti = $("m-viesti").value;
   if (!/^[^\s@,]+@[^\s@,]+\.[^\s@,]+$/.test(to)) { $("m-tila").textContent = "Tarkista vastaanottajan osoite."; return; }
-  if (!aihe || !viesti.trim()) { $("m-tila").textContent = "Aihe ja viesti ovat pakollisia."; return; }
-  if (!confirm(`Lähetetäänkö viesti osoitteeseen ${to}?`)) return;
+  const kampanja = !viesti.trim();
+  if (!kampanja && !aihe) { $("m-tila").textContent = "Kirjoita aihe, tai jätä viesti tyhjäksi, niin lähetetään kampanjaviesti."; return; }
+  if (!confirm(kampanja ? `Lähetetäänkö kampanjaviesti (HTML-esikatselun viesti) osoitteeseen ${to}?` : `Lähetetäänkö viesti osoitteeseen ${to}?`)) return;
   $("m-laheta").disabled = true; $("m-tila").textContent = "Lähetetään…";
   const r = await fetch(`https://api.github.com/repos/${REPO}/actions/workflows/laheta-yksi.yml/dispatches`, {
     method: "POST", headers: otsikot(),
