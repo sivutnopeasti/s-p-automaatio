@@ -1,0 +1,42 @@
+name: Lähetä yksi viesti
+
+on:
+  workflow_dispatch:
+    inputs:
+      vastaanottaja:
+        description: "Vastaanottajan sähköpostiosoite"
+        required: true
+      aihe:
+        description: "Aihe"
+        required: true
+      viesti:
+        description: "Viesti"
+        required: true
+      lahettaja:
+        description: "Lähettäjä"
+        type: choice
+        options:
+          - ugc@visioreach.fi
+          - ugc@visiosites.fi
+        default: ugc@visioreach.fi
+
+permissions:
+  contents: read
+
+jobs:
+  laheta:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Lähetä
+        env:
+          SMTP_SALASANA: ${{ secrets.salasana }}
+          VASTAANOTTAJA: ${{ inputs.vastaanottaja }}
+          AIHE: ${{ inputs.aihe }}
+          VIESTI: ${{ inputs.viesti }}
+          LAHETTAJA: ${{ inputs.lahettaja }}
+        run: python yksi.py

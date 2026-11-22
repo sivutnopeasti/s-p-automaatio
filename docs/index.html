@@ -14,6 +14,8 @@
   h1 { font-size:20px; margin:0 0 16px; }
   .big { font-size:48px; font-weight:700; text-align:center; margin:8px 0; }
   input[type=range] { width:100%; accent-color:var(--accent); }
+  input[type=email], input[type=text], select, textarea { width:100%; padding:8px; border:1px solid var(--border); border-radius:8px; background:var(--bg); color:var(--text); font:inherit; margin-top:8px; }
+  textarea { min-height:160px; resize:vertical; }
   input[type=password] { width:100%; padding:8px; border:1px solid var(--border); border-radius:8px; background:var(--bg); color:var(--text); }
   button { background:var(--accent); color:#fff; border:0; border-radius:8px; padding:10px 16px; font-size:16px; cursor:pointer; width:100%; margin-top:12px; }
   label { display:flex; gap:8px; align-items:center; margin-top:12px; }
@@ -38,7 +40,16 @@
     <div><b id="s-jono">–</b><span class="muted">jäljellä</span></div>
   </div>
   <div class="card">
-    <p class="muted">GitHub-token (fine-grained, oikeus <i>Contents: Read and write</i> tähän repoon). Tallentuu vain tähän selaimeen.</p>
+    <h1>Lähetä yksi viesti</h1>
+    <input type="email" id="m-to" placeholder="vastaanottaja@esimerkki.fi">
+    <input type="text" id="m-aihe" placeholder="Aihe">
+    <textarea id="m-viesti" placeholder="Kirjoita viesti tähän"></textarea>
+    <select id="m-from"><option>ugc@visioreach.fi</option><option>ugc@visiosites.fi</option></select>
+    <button id="m-laheta">Lähetä</button>
+    <p class="muted" id="m-tila"></p>
+  </div>
+  <div class="card">
+    <p class="muted">GitHub-token (fine-grained, oikeudet <i>Contents</i> ja <i>Actions: Read and write</i> tähän repoon). Tallentuu vain tähän selaimeen.</p>
     <input type="password" id="token" placeholder="github_pat_...">
   </div>
 </main>
@@ -92,6 +103,23 @@ $("tallenna").addEventListener("click", async () => {
   });
   if (r.ok) { sha = (await r.json()).content.sha; $("tila").textContent = "Tallennettu ✓"; }
   else $("tila").textContent = "Tallennus epäonnistui: " + r.status;
+});
+
+$("m-laheta").addEventListener("click", async () => {
+  const to = $("m-to").value.trim(), aihe = $("m-aihe").value.trim(), viesti = $("m-viesti").value;
+  if (!/^[^\s@,]+@[^\s@,]+\.[^\s@,]+$/.test(to)) { $("m-tila").textContent = "Tarkista vastaanottajan osoite."; return; }
+  if (!aihe || !viesti.trim()) { $("m-tila").textContent = "Aihe ja viesti ovat pakollisia."; return; }
+  if (!confirm(`Lähetetäänkö viesti osoitteeseen ${to}?`)) return;
+  $("m-laheta").disabled = true; $("m-tila").textContent = "Lähetetään…";
+  const r = await fetch(`https://api.github.com/repos/${REPO}/actions/workflows/laheta-yksi.yml/dispatches`, {
+    method: "POST", headers: otsikot(),
+    body: JSON.stringify({ ref: "main", inputs: { vastaanottaja: to, aihe, viesti, lahettaja: $("m-from").value } })
+  });
+  $("m-laheta").disabled = false;
+  if (r.status === 204) {
+    $("m-tila").innerHTML = `Lähetys käynnistetty ✓ Viesti lähtee noin minuutin kuluessa. <a href="https://github.com/${REPO}/actions/workflows/laheta-yksi.yml" target="_blank">Seuraa tästä</a>`;
+    $("m-viesti").value = "";
+  } else $("m-tila").textContent = "Lähetys epäonnistui: " + r.status + " (onko tokenilla Actions-oikeus?)";
 });
 
 lataa();
