@@ -1,8 +1,8 @@
-Aihe: Etsi yrityksellesi sisällöntuottaja helposti ilmaiseksi
+Aihe: Etsi yrityksellesi sisällöntuottaja helposti
 
 Hei {nimi},
 
-Etsi yrityksellesi sisällöntuottaja helposti ilmaiseksi: kerro kampanjastasi UGC Suomessa, niin viemme sen yli 2 500 suomalaisen sisällöntuottajan nähtäville.
+Etsi yrityksellesi sisällöntuottaja helposti: kerro kampanjastasi UGC Suomessa, niin viemme sen yli 2 500 suomalaisen sisällöntuottajan nähtäville.
 
 Näin se toimii:
 1. Täytät lyhyen lomakkeen kampanjastasi. Tekstejä ei tarvitse kirjoittaa itse.
