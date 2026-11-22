@@ -67,7 +67,9 @@ def main():
         jono.append((email, (r.get("nimi") or "").strip()))
 
     tanaan = datetime.now(timezone.utc).date().isoformat()
-    tanaan_lahetetty = sum(1 for r in lue_csv("lahetetyt.csv") if r["aika"].startswith(tanaan))
+    tanaan_rivit = [r for r in lue_csv("lahetetyt.csv") if r["aika"].startswith(tanaan)]
+    tanaan_lahetetty = len(tanaan_rivit)
+    per_tili = {t: sum(1 for r in tanaan_rivit if r.get("lahettaja") == t) for t in TILIT}
     jono = jono[: max(0, maara - tanaan_lahetetty)]
     print(f"Päivän raja {maara}, tänään jo {tanaan_lahetetty}, nyt lähetetään {len(jono)}.")
     if not jono:
@@ -81,7 +83,8 @@ def main():
     yhteydet = {}
     try:
         for i, (email, nimi) in enumerate(jono):
-            tili = TILIT[i % len(TILIT)]
+            tili = min(TILIT, key=lambda t: per_tili[t])  # tasan molemmille tileille
+            per_tili[tili] += 1
             kutsu = nimi  # ilman nimeä "Hei {nimi}," -> "Hei,"
             msg = EmailMessage()
             msg["From"] = formataddr((LAHETTAJAN_NIMI, tili))
