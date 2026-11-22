@@ -1,0 +1,9 @@
+Aihe: Hei {nimi}, lyhyt kysymys
+
+Hei {nimi},
+
+Tähän tulee viestin sisältö. {nimi} korvataan listan nimellä, ja jos nimeä
+ei ole, sen tilalle tulee "siellä".
+
+Ystävällisin terveisin,
+Visio

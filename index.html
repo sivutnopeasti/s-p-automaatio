@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="fi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Säpöautomaatio</title>
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --text:#1c1f24; --muted:#6b7280; --accent:#2563eb; --border:#e5e7eb; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#111318; --card:#1b1e25; --text:#e7e9ee; --muted:#9aa1ad; --accent:#60a5fa; --border:#2b2f38; } }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:16px/1.5 system-ui, sans-serif; }
+  main { max-width:480px; margin:40px auto; padding:0 16px; }
+  .card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:24px; margin-bottom:16px; }
+  h1 { font-size:20px; margin:0 0 16px; }
+  .big { font-size:48px; font-weight:700; text-align:center; margin:8px 0; }
+  input[type=range] { width:100%; accent-color:var(--accent); }
+  input[type=password] { width:100%; padding:8px; border:1px solid var(--border); border-radius:8px; background:var(--bg); color:var(--text); }
+  button { background:var(--accent); color:#fff; border:0; border-radius:8px; padding:10px 16px; font-size:16px; cursor:pointer; width:100%; margin-top:12px; }
+  label { display:flex; gap:8px; align-items:center; margin-top:12px; }
+  .muted { color:var(--muted); font-size:14px; }
+  .stats { display:flex; justify-content:space-between; text-align:center; }
+  .stats b { display:block; font-size:22px; }
+</style>
+</head>
+<body>
+<main>
+  <div class="card">
+    <h1>Sähköposteja päivässä</h1>
+    <div class="big" id="arvo">–</div>
+    <input type="range" id="liuku" min="0" max="200" step="1" value="20">
+    <label><input type="checkbox" id="kaytossa"> Lähetys käytössä</label>
+    <button id="tallenna">Tallenna</button>
+    <p class="muted" id="tila"></p>
+  </div>
+  <div class="card stats">
+    <div><b id="s-tanaan">–</b><span class="muted">tänään</span></div>
+    <div><b id="s-yht">–</b><span class="muted">lähetetty</span></div>
+    <div><b id="s-jono">–</b><span class="muted">jäljellä</span></div>
+  </div>
+  <div class="card">
+    <p class="muted">GitHub-token (fine-grained, oikeus <i>Contents: Read and write</i> tähän repoon). Tallentuu vain tähän selaimeen.</p>
+    <input type="password" id="token" placeholder="github_pat_...">
+  </div>
+</main>
+<script>
+const REPO = "sivutnopeasti/s-p-automaatio";
+const API = `https://api.github.com/repos/${REPO}/contents/`;
+const $ = id => document.getElementById(id);
+let sha = null, config = {};
+
+const getToken = () => { try { return localStorage.getItem("gh_token") || ""; } catch { return ""; } };
+$("token").value = getToken();
+$("token").addEventListener("change", e => { try { localStorage.setItem("gh_token", e.target.value.trim()); } catch {} lataa(); });
+$("liuku").addEventListener("input", e => $("arvo").textContent = e.target.value);
+
+const otsikot = () => ({ Authorization: `Bearer ${getToken()}`, Accept: "application/vnd.github+json" });
+const dekoodaa = b64 => new TextDecoder().decode(Uint8Array.from(atob(b64.replace(/\n/g, "")), c => c.charCodeAt(0)));
+const enkoodaa = txt => btoa(String.fromCharCode(...new TextEncoder().encode(txt)));
+const rivit = txt => txt.trim().split(/\r?\n/).slice(1).filter(Boolean);
+
+async function hae(polku) {
+  const r = await fetch(API + polku + "?t=" + Date.now(), { headers: otsikot() });
+  if (!r.ok) throw new Error(`${polku}: ${r.status}`);
+  return r.json();
+}
+
+async function lataa() {
+  if (!getToken()) { $("tila").textContent = "Syötä GitHub-token alle."; return; }
+  try {
+    const c = await hae("config.json");
+    sha = c.sha; config = JSON.parse(dekoodaa(c.content));
+    $("liuku").value = config.paivittainen_maara; $("arvo").textContent = config.paivittainen_maara;
+    $("kaytossa").checked = !!config.kaytossa;
+    $("tila").textContent = "Ladattu.";
+    const [l, s, e] = await Promise.all(["lista.csv", "lahetetyt.csv", "estetyt.csv"].map(p => hae(p).then(x => dekoodaa(x.content)).catch(() => "x\n")));
+    const lahetetyt = rivit(s).map(r => r.split(","));
+    const pois = new Set([...lahetetyt.map(r => r[1].toLowerCase()), ...rivit(e).map(r => r.toLowerCase())]);
+    const tanaan = new Date().toISOString().slice(0, 10);
+    $("s-tanaan").textContent = lahetetyt.filter(r => r[0].startsWith(tanaan)).length;
+    $("s-yht").textContent = lahetetyt.length;
+    $("s-jono").textContent = new Set(rivit(l).map(r => r.split(",")[0].trim().toLowerCase()).filter(x => x.includes("@") && !pois.has(x))).size;
+  } catch (err) { $("tila").textContent = "Virhe: " + err.message; }
+}
+
+$("tallenna").addEventListener("click", async () => {
+  config.paivittainen_maara = Number($("liuku").value);
+  config.kaytossa = $("kaytossa").checked;
+  $("tila").textContent = "Tallennetaan…";
+  const r = await fetch(API + "config.json", {
+    method: "PUT", headers: otsikot(),
+    body: JSON.stringify({ message: `Päivittäinen määrä ${config.paivittainen_maara}${config.kaytossa ? "" : " (pois käytöstä)"}`, content: enkoodaa(JSON.stringify(config, null, 2) + "\n"), sha })
+  });
+  if (r.ok) { sha = (await r.json()).content.sha; $("tila").textContent = "Tallennettu ✓"; }
+  else $("tila").textContent = "Tallennus epäonnistui: " + r.status;
+});
+
+lataa();
+</script>
+</body>
+</html>

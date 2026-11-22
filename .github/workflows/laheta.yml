@@ -1,0 +1,43 @@
+name: Lähetä sähköpostit
+
+on:
+  schedule:
+    - cron: "0 7 * * 1-5"   # ma-pe klo 9 (talviaika) / 10 (kesäaika) Suomen aikaa
+  workflow_dispatch:
+    inputs:
+      kuivaharjoitus:
+        description: "Kuivaharjoitus (ei lähetä mitään, vain tulostaa)"
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: laheta
+  cancel-in-progress: false
+
+jobs:
+  laheta:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Lähetä
+        env:
+          SMTP_SALASANA: ${{ secrets.salasana }}
+          KUIVAHARJOITUS: ${{ github.event_name == 'workflow_dispatch' && inputs.kuivaharjoitus || 'false' }}
+        run: python laheta.py
+      - name: Tallenna lähetetyt
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lahetetyt.csv
+          git diff --cached --quiet && exit 0
+          git commit -m "Päivitä lähetetyt"
+          git pull --rebase
+          git push
