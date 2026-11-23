@@ -46,9 +46,19 @@ def main():
     if html:
         msg.add_alternative(html, subtype="html")
 
-    with smtplib.SMTP_SSL("mail." + tili.split("@")[1], PORTTI, timeout=60) as s:
-        s.login(tili, tilin_salasana(tili, salasana))
-        s.send_message(msg)
+    try:
+        with smtplib.SMTP_SSL("mail." + tili.split("@")[1], PORTTI, timeout=60) as s:
+            s.login(tili, tilin_salasana(tili, salasana))
+            s.send_message(msg)
+    except smtplib.SMTPAuthenticationError as e:
+        oma = "salasana_" + tili.split("@")[1].split(".")[0]
+        print(f"::error title=Kirjautuminen epäonnistui::Palvelin hylkäsi tilin {tili} salasanan "
+              f"({e.smtp_code}). Viestiä ei lähetetty. Tarkista salasana webmailista ja lisää se "
+              f"tarvittaessa secretiksi {oma}. Voit testata asetussivun Testaa kirjautuminen -napilla.")
+        sys.exit(1)
+    except (OSError, smtplib.SMTPException) as e:
+        print(f"::error title=Lähetys epäonnistui::{tili} -> {vastaanottaja}: {type(e).__name__}: {e}")
+        sys.exit(1)
     print(f"Lähetetty{' (kampanjaviesti)' if html else ''}: {tili} -> {vastaanottaja}")
 
 
