@@ -19,7 +19,7 @@ Yksinkertainen sähköpostiautomaatio: lähettää päivittäin säädettävän 
 
 ## Miten toimii
 
-GitHub Actions ajaa `laheta.py`:n ma–pe klo 7 UTC (9 tai 10 Suomen aikaa). Skripti lähettää päivän määrän verran viestejä listan alusta, 30–90 sekunnin tauoilla, ja kirjaa ne `lahetetyt.csv`:hen. Salasana tulee repon secretistä `salasana`. SMTP: `mail.<domain>`, portti 465 (SSL).
+GitHub Actions yrittää ajaa `laheta.py`:n ma–pe kerran tunnissa klo 9–17 (talviaika). Ensimmäinen onnistunut ajo lähettää päivän määrän, myöhemmät eivät lähetä mitään, ellei määrää nosteta. Skripti lähettää päivän määrän verran viestejä listan alusta, 30–90 sekunnin tauoilla, ja kirjaa ne `lahetetyt.csv`:hen. Salasana tulee repon secretistä `salasana`. SMTP: `mail.<domain>`, portti 465 (SSL).
 
 ## Asetussivu
 
