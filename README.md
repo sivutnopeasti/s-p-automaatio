@@ -1,6 +1,6 @@
 # Säpöautomaatio
 
-Yksinkertainen sähköpostiautomaatio: lähettää päivittäin säädettävän määrän viestejä CSV-listalta SMTP:llä, vuorotellen tileiltä `ugc@visioreach.fi` ja `ugc@visiosites.fi`.
+Yksinkertainen sähköpostiautomaatio: lähettää päivittäin säädettävän määrän viestejä CSV-listalta SMTP:llä, vuorotellen tileiltä `ugc@visioreach.fi` ja `ugc@visiosites.com`.
 
 ## Tiedostot
 

@@ -20,7 +20,7 @@ from datetime import datetime, timezone
 from email.message import EmailMessage
 from email.utils import formataddr, formatdate, make_msgid
 
-TILIT = ["ugc@visioreach.fi", "ugc@visiosites.fi"]
+TILIT = ["ugc@visioreach.fi", "ugc@visiosites.com"]
 LAHETTAJAN_NIMI = "UGC Suomi"
 PORTTI = 465
 VIIVE_SEK = (30, 90)  # satunnainen tauko viestien välillä

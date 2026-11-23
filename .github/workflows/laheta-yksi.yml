@@ -17,7 +17,7 @@ on:
         type: choice
         options:
           - ugc@visioreach.fi
-          - ugc@visiosites.fi
+          - ugc@visiosites.com
         default: ugc@visioreach.fi
 
 permissions:
