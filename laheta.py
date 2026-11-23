@@ -13,6 +13,7 @@ import json
 import os
 import random
 import smtplib
+import socket
 import sys
 import time
 from datetime import datetime, timezone
@@ -77,8 +78,13 @@ def main():
     tanaan_rivit = [r for r in lue_csv("lahetetyt.csv") if r["aika"].startswith(tanaan)]
     tanaan_lahetetty = len(tanaan_rivit)
     per_tili = {t: sum(1 for r in tanaan_rivit if r.get("lahettaja") == t) for t in TILIT}
-    jono = jono[: max(0, maara - tanaan_lahetetty)]
-    print(f"Päivän raja {maara}, tänään jo {tanaan_lahetetty}, nyt lähetetään {len(jono)}.")
+    # Jokaisella tilillä on oma kiintiönsä (lämmitys). Kiintiötä EI siirretä toiselle tilille.
+    kiintio = {t: maara // len(TILIT) + (1 if i < maara % len(TILIT) else 0) for i, t in enumerate(TILIT)}
+    jaljella = {t: max(0, kiintio[t] - per_tili[t]) for t in TILIT}
+    yhteensa = sum(jaljella.values())
+    print(f"Päivän raja {maara}, tänään jo {tanaan_lahetetty}. Jäljellä tänään: "
+          + ", ".join(f"{t} {jaljella[t]}/{kiintio[t]}" for t in TILIT))
+    jono = jono[:yhteensa]
     if not jono:
         return
 
@@ -102,6 +108,24 @@ def main():
             msg.add_alternative(html_pohja.replace("{nimi}", kutsu).replace(" ,", ","), subtype="html")
         return msg
 
+    def diagnoosi(tili, virhe):
+        palvelin = "mail." + tili.split("@")[1]
+        try:
+            ip = socket.gethostbyname(palvelin)
+        except Exception:
+            ip = "?"
+        tervehdys = "?"
+        try:
+            with smtplib.SMTP_SSL(palvelin, PORTTI, timeout=30) as s:
+                tervehdys = s.ehlo()[1].decode(errors="replace").splitlines()[0]
+        except Exception as e:
+            tervehdys = type(e).__name__
+        oma = "SMTP_SALASANA_" + tili.split("@")[1].split(".")[0].upper()
+        print(f"VIRHE: kirjautuminen epäonnistui tilillä {tili}: {virhe.smtp_code} "
+              f"{virhe.smtp_error.decode(errors='replace')}. Palvelin {palvelin} ({ip}), tunnistautuu: {tervehdys}. "
+              f"Tilikohtainen salasana {oma}: {'asetettu' if os.environ.get(oma) else 'ei asetettu, käytetty yhteistä'}. "
+              f"Tämän tilin osuutta ei lähetetä toiselta tililtä.")
+
     def laheta_tililta(tili, msg):
         for yritys in range(2):
             try:
@@ -117,32 +141,40 @@ def main():
                     raise
 
     try:
-        for i, (email, nimi) in enumerate(jono):
-            kutsu = nimi  # ilman nimeä "Hei {nimi}," -> "Hei,"
-            while True:
-                toimivat = [t for t in TILIT if t not in rikki]
-                if not toimivat:
-                    sys.exit("Kirjautuminen epäonnistui kaikilla tileillä.")
-                tili = min(toimivat, key=lambda t: per_tili[t])  # tasan toimiville tileille
-                msg = rakenna(tili, email, kutsu)
-                if kuivaharjoitus:
-                    break
-                try:
-                    laheta_tililta(tili, msg)
-                    break
-                except smtplib.SMTPAuthenticationError:
-                    print(f"VIRHE: kirjautuminen epäonnistui tilillä {tili}, käytetään muita tilejä.")
-                    rikki.add(tili)
-            per_tili[tili] += 1
+        jono_iter = iter(jono)
+        lahetetty_nyt = 0
+        while True:
+            toimivat = [t for t in TILIT if t not in rikki and jaljella[t] > 0]
+            if not toimivat:
+                break
+            tili = min(toimivat, key=lambda t: per_tili[t])  # vuorotellen tileille
+            seuraava = next(jono_iter, None)
+            if seuraava is None:
+                break
+            email, nimi = seuraava
+            msg = rakenna(tili, email, nimi)  # ilman nimeä "Hei {nimi}," -> "Hei,"
             if kuivaharjoitus:
                 print(f"[KUIVA] {tili} -> {email}: {msg['Subject']}")
-                continue
-
-            with open("lahetetyt.csv", "a", newline="", encoding="utf-8") as f:
-                csv.writer(f).writerow([datetime.now(timezone.utc).isoformat(timespec="seconds"), email, tili])
-            print(f"Lähetetty {i + 1}/{len(jono)}: {tili} -> {email}")
-            if i < len(jono) - 1:
+            else:
+                try:
+                    laheta_tililta(tili, msg)
+                except smtplib.SMTPAuthenticationError as e:
+                    rikki.add(tili)
+                    diagnoosi(tili, e)
+                    jono_iter = iter([seuraava] + list(jono_iter))  # osoite jää seuraavalle tilille/ajolle
+                    continue
+                with open("lahetetyt.csv", "a", newline="", encoding="utf-8") as f:
+                    csv.writer(f).writerow([datetime.now(timezone.utc).isoformat(timespec="seconds"), email, tili])
+                lahetetty_nyt += 1
+                print(f"Lähetetty {lahetetty_nyt}: {tili} -> {email}")
+            per_tili[tili] += 1
+            jaljella[tili] -= 1
+            if not kuivaharjoitus and any(jaljella[t] > 0 and t not in rikki for t in TILIT):
                 time.sleep(random.uniform(*VIIVE_SEK))
+        for t in rikki:
+            print(f"HUOM: tililtä {t} jäi tänään lähettämättä {jaljella[t]} viestiä (kiintiötä ei siirretty toiselle tilille).")
+        if rikki:
+            sys.exit(1)  # ajo näkyy punaisena, jotta virhe huomataan
     finally:
         for s in yhteydet.values():
             try:
