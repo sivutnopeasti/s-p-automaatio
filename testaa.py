@@ -72,7 +72,10 @@ def main():
             tulokset = [kokeile("SMTP 465", lambda: smtp465(palvelin, tili, pw)),
                         kokeile("SMTP 587", lambda: smtp587(palvelin, tili, pw)),
                         kokeile("IMAP 993", lambda: imap993(palvelin, tili, pw))]
-            ok = all(t.endswith("OK") for t in tulokset)
+            # Automaatio käyttää porttia 465 (SMTP) ja 993 (IMAP); 587 on vain tiedoksi.
+            ok = tulokset[0].endswith("OK") and tulokset[2].endswith("OK")
+            if ok and not tulokset[1].endswith("OK"):
+                tulokset[1] += " – ei käytössä, ei haittaa"
             taso = "notice" if ok else "error"
             print(f"::{taso} title={tili}::{kuvaus}: {', '.join(tulokset)}. Palvelin {palvelin} = {ip} ({nimi})")
     print("Valmis.")
