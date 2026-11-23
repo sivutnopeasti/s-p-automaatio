@@ -15,6 +15,7 @@ Yksinkertainen sähköpostiautomaatio: lähettää päivittäin säädettävän 
 | `estetyt.csv` | Osoitteet, joille ei lähetetä koskaan (esim. peruutukset) |
 | `docs/index.html` | Asetussivu liukusäätimellä (GitHub Pages) |
 | `laheta.py` | Lähetysskripti |
+| `testaa.py` | Kirjautumistesti molemmille tileille (SMTP 465/587, IMAP 993), ei lähetä mitään |
 | `yksi.py` | Yksittäisen viestin lähetys (asetussivun lomake) |
 
 ## Miten toimii

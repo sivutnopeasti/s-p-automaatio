@@ -1,0 +1,23 @@
+name: Testaa kirjautuminen
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  testaa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Testaa kirjautuminen
+        env:
+          SMTP_SALASANA: ${{ secrets.salasana }}
+          SMTP_SALASANA_VISIOREACH: ${{ secrets.salasana_visioreach }}
+          SMTP_SALASANA_VISIOSITES: ${{ secrets.salasana_visiosites }}
+        run: python testaa.py

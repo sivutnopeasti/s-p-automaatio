@@ -73,6 +73,12 @@
     <p class="muted" id="m-tila"></p>
   </div>
   <div class="card">
+    <h1>Testaa kirjautuminen</h1>
+    <p class="muted">Kokeilee molempien tilien salasanaa (SMTP ja IMAP) lähettämättä mitään. Kestää noin minuutin.</p>
+    <button id="t-testaa" type="button">Testaa kirjautuminen</button>
+    <div id="t-tulos" class="muted" style="margin-top:12px"></div>
+  </div>
+  <div class="card">
     <p class="muted">GitHub-token (fine-grained, oikeudet <i>Contents</i> ja <i>Actions: Read and write</i> tähän repoon). Tallentuu vain tähän selaimeen.</p>
     <input type="password" id="token" placeholder="github_pat_...">
   </div>
@@ -315,6 +321,43 @@ $("pl-laheta").addEventListener("click", async () => {
 });
 $("token").addEventListener("change", lataaPosti);
 setInterval(lataaPosti, 5 * 60000);
+
+// ---------- Kirjautumistesti ----------
+$("t-testaa").addEventListener("click", async () => {
+  const tulos = $("t-tulos"), nappi = $("t-testaa");
+  const alku = new Date(Date.now() - 5000).toISOString();
+  nappi.disabled = true; tulos.textContent = "Käynnistetään testi…";
+  const gh = (u, o = {}) => fetch("https://api.github.com/repos/" + REPO + u, { ...o, headers: otsikot() });
+  try {
+    const r = await gh("/actions/workflows/testaa.yml/dispatches", { method: "POST", body: JSON.stringify({ ref: "main" }) });
+    if (r.status !== 204) throw new Error(r.status + " (onko tokenilla Actions-oikeus?)");
+    let ajo = null;
+    for (let i = 0; i < 60; i++) {
+      await new Promise(ok => setTimeout(ok, 5000));
+      const ajot = (await (await gh("/actions/workflows/testaa.yml/runs?per_page=5")).json()).workflow_runs || [];
+      ajo = ajot.find(a => a.created_at >= alku.slice(0, 19));
+      tulos.textContent = ajo ? `Testi käynnissä (${ajo.status})…` : "Odotetaan testin käynnistymistä…";
+      if (ajo && ajo.status === "completed") break;
+    }
+    if (!ajo || ajo.status !== "completed") throw new Error("testi ei valmistunut ajoissa");
+    const linkki = `<a href="${ajo.html_url}" target="_blank">Avaa ajo GitHubissa</a>`;
+    try {
+      const jobs = (await (await gh(`/actions/runs/${ajo.id}/jobs`)).json()).jobs;
+      const ann = await (await gh(`/check-runs/${jobs[0].id}/annotations`)).json();
+      if (!Array.isArray(ann)) throw 0;
+      tulos.innerHTML = "";
+      for (const a of ann.filter(a => a.title && a.title.includes("@"))) {
+        const d = el("div", "pl-viesti " + (a.annotation_level === "notice" ? "out" : "in"));
+        d.style.margin = "8px 0";
+        d.append(el("div", "", (a.annotation_level === "notice" ? "✓ " : "✗ ") + a.title)); d.firstChild.style.fontWeight = "600";
+        d.append(el("div", "pl-meta", a.message));
+        tulos.append(d);
+      }
+      tulos.insertAdjacentHTML("beforeend", linkki);
+    } catch { tulos.innerHTML = "Testi valmis. Tulokset näkyvät ajon yhteenvedossa: " + linkki; }
+  } catch (err) { tulos.textContent = "Testi epäonnistui: " + err.message; }
+  nappi.disabled = false;
+});
 
 lataa();
 lataaEsikatselu();
