@@ -58,6 +58,12 @@ def main():
         print("Lähetys ei ole käytössä (config.json: kaytossa = false).")
         return
     maara = max(0, int(config.get("paivittainen_maara", 0)))
+    if os.environ.get("AJO") == "schedule":
+        from zoneinfo import ZoneInfo
+        tunti = datetime.now(ZoneInfo("Europe/Helsinki")).hour
+        if not 8 <= tunti < 18:
+            print(f"GitHubin ajastus käynnistyi myöhässä (klo {tunti} Suomen aikaa). Ei lähetetä yöllä.")
+            return
 
     salasana = os.environ.get("SMTP_SALASANA", "")
     if not salasana and not kuivaharjoitus:
@@ -84,8 +90,7 @@ def main():
     yhteensa = sum(jaljella.values())
     print(f"Päivän raja {maara}, tänään jo {tanaan_lahetetty}. Jäljellä tänään: "
           + ", ".join(f"{t} {jaljella[t]}/{kiintio[t]}" for t in TILIT))
-    jono = jono[:yhteensa]
-    if not jono:
+    if not yhteensa or not jono:
         return
 
     aihe_pohja, runko_pohja = lue_viesti()
@@ -162,6 +167,20 @@ def main():
                     rikki.add(tili)
                     diagnoosi(tili, e)
                     jono_iter = iter([seuraava] + list(jono_iter))  # osoite jää seuraavalle tilille/ajolle
+                    continue
+                except smtplib.SMTPRecipientsRefused as e:
+                    # Osoite ei kelpaa (esim. ei ole olemassa): ohitetaan pysyvästi, ei kuluta kiintiötä.
+                    syy = next(iter(e.recipients.values()), (0, b""))
+                    print(f"OHITETTU: {email} hylättiin ({syy[0]}), lisätty estetyt.csv:hen.")
+                    with open("estetyt.csv", "a", newline="", encoding="utf-8") as f:
+                        csv.writer(f).writerow([email])
+                    continue
+                except (smtplib.SMTPException, OSError) as e:
+                    print(f"VIRHE: lähetys tililtä {tili} epäonnistui ({type(e).__name__}: {e}). "
+                          f"Tililtä ei lähetetä tänään enempää tässä ajossa.")
+                    rikki.add(tili)
+                    yhteydet.pop(tili, None)
+                    jono_iter = iter([seuraava] + list(jono_iter))
                     continue
                 with open("lahetetyt.csv", "a", newline="", encoding="utf-8") as f:
                     csv.writer(f).writerow([datetime.now(timezone.utc).isoformat(timespec="seconds"), email, tili])

@@ -35,13 +35,14 @@ jobs:
           SMTP_SALASANA_VISIOREACH: ${{ secrets.salasana_visioreach }}
           SMTP_SALASANA_VISIOSITES: ${{ secrets.salasana_visiosites }}
           KUIVAHARJOITUS: ${{ github.event_name == 'workflow_dispatch' && inputs.kuivaharjoitus || 'false' }}
+          AJO: ${{ github.event_name }}
         run: python laheta.py
       - name: Tallenna lähetetyt
         if: always()
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add lahetetyt.csv
+          git add lahetetyt.csv estetyt.csv
           git diff --cached --quiet && exit 0
           git commit -m "Päivitä lähetetyt"
           git pull --rebase
