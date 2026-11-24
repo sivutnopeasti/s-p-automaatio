@@ -25,7 +25,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 350
     steps:
+      # Haetaan mainin TUOREIN versio (ei käynnistyshetken versiota), jotta
+      # edellisen ajon lähetykset näkyvät eikä kenellekään lähetetä kahdesti.
       - uses: actions/checkout@v4
+        with:
+          ref: main
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -42,8 +46,26 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add lahetetyt.csv estetyt.csv
-          git diff --cached --quiet && exit 0
-          git commit -m "Päivitä lähetetyt"
-          git pull --rebase
-          git push
+          cp lahetetyt.csv "$RUNNER_TEMP/lahetetyt.csv"; cp estetyt.csv "$RUNNER_TEMP/estetyt.csv"
+          for yritys in 1 2 3 4 5; do
+            git fetch -q origin main && git reset -q --hard origin/main
+            # Lisätään tämän ajon uudet rivit mainin uusimpaan versioon (ei ristiriitoja)
+            for f in lahetetyt.csv estetyt.csv; do
+              python - "$f" "$RUNNER_TEMP/$f" <<'PY'
+          import sys
+          kohde, oma = sys.argv[1], sys.argv[2]
+          vanhat = open(kohde, encoding="utf-8").read().splitlines()
+          olemassa = set(vanhat)
+          uudet = [r for r in open(oma, encoding="utf-8").read().splitlines() if r and r not in olemassa]
+          if uudet:
+              with open(kohde, "a", encoding="utf-8") as f:
+                  f.write("".join(r + "\n" for r in uudet))
+          PY
+            done
+            git add lahetetyt.csv estetyt.csv
+            git diff --cached --quiet && exit 0
+            git commit -qm "Päivitä lähetetyt"
+            git push -q origin HEAD:main && exit 0
+            sleep $((yritys * 5))
+          done
+          echo "::error::Lähetettyjen tallennus epäonnistui"; exit 1
