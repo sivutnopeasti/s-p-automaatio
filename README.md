@@ -45,3 +45,17 @@ Asetussivun *Vastaukset*-osio näyttää molempien tilien saapuneet viestit kesk
 - Työnkulku *Postilaatikko* hakee viestit IMAPilla (mail.<domain>:993) 15 minuutin välein tai *Päivitä nyt* -napista. Haku kattaa 90 päivää.
 - Viestit tallennetaan haaraan `postilaatikko` **salattuna** (AES-GCM, avain johdettu secretistä `salasana`). Sivu purkaa ne selaimessa, kun syötät saman salasanan.
 - Vastaukset lähetetään salattuina työnkulun syötteenä, joten osoitteet ja tekstit eivät näy julkisissa lokeissa. Vastaus tallennetaan myös tilin Lähetetyt-kansioon, joten se näkyy myös webmailissa.
+
+## Varma ajastus (cron-job.org)
+
+GitHubin oma ajastus jättää ajoja väliin tai käynnistää ne tunteja myöhässä. Siksi lähetyksen käynnistää ulkoinen ajastin cron-job.org GitHubin rajapinnan kautta.
+
+- URL: `https://api.github.com/repos/sivutnopeasti/s-p-automaatio/actions/workflows/laheta.yml/dispatches`
+- Metodi: POST
+- Otsakkeet: `Authorization: Bearer <token>`, `Accept: application/vnd.github+json`, `X-GitHub-Api-Version: 2022-11-28`, `Content-Type: application/json`
+- Runko: `{"ref":"main","inputs":{"kuivaharjoitus":"false"}}`
+- Aikataulu: ma–pe klo 9.00 ja varalle klo 13.00 (Europe/Helsinki). Toinen ajo ei lähetä mitään, jos päivän määrä on jo täynnä.
+- Token: fine-grained, vain tähän repoon, oikeus *Actions: Read and write*.
+- Onnistunut kutsu palauttaa koodin 204.
+
+GitHubin oma tunnin välein -ajastus on jätetty varalle, mutta se ei lähetä klo 18–8 Suomen aikaa.
